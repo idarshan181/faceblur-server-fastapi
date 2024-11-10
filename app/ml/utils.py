@@ -37,6 +37,7 @@ def detect_faces_in_frame(frame, model, confidence_threshold=0.3, should_blur=Fa
     """Detect faces in the frame and optionally blur them."""
     # The YOLO model returns a list of Results objects; we need to access the first one
     results = model.predict(frame)  # This returns a list of Results objects
+    print("results", results, type(results))
     if not results:
         return frame
 

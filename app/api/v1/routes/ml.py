@@ -1,7 +1,16 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile, File, Query
+from fastapi.responses import StreamingResponse, FileResponse
 from pydantic import BaseModel
 from app.ml.model import ml_model
 import logging
+import cv2
+import os
+from io import BytesIO
+import numpy as np
+from app.ml.process import process_image_bytes, process_video_bytes
+from app.ml.utils import save_video
+from tempfile import NamedTemporaryFile
+
 
 logger = logging.getLogger(__name__)
 
@@ -9,6 +18,13 @@ router = APIRouter()
 
 class ModelStatus(BaseModel):
     is_loaded: bool
+
+
+class PredictionResponse(BaseModel):
+    status: str
+    detail: str
+    media_type: str
+    media_size: tuple
 
 @router.get("/status", response_model=ModelStatus)
 async def get_model_status():
@@ -21,6 +37,46 @@ async def get_model_status():
     except Exception as e:
         logger.error(f"Failed to load model: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to load model: {str(e)}")
+
+
+@router.post("/predict", response_model=PredictionResponse)
+async def predict(file: UploadFile = File(...), should_blur: bool = Query(False, description="Set to True to blur faces, or False to only draw bounding boxes.")):
+    try:
+        contents = await file.read()
+        filename = file.filename
+        ext = filename.split('.')[-1].lower()
+
+        if ext not in ["jpg", "jpeg", "png", "mp4", "avi", "mov"]:
+            raise HTTPException(status_code=400, detail="Unsupported file type")
+
+        # For images
+        if ext in ["jpg", "jpeg", "png"]:
+            processed_image = process_image_bytes(contents, ml_model, should_blur=should_blur)
+            _, buffer = cv2.imencode(".jpg", processed_image)
+            result_bytes = BytesIO(buffer)
+            return StreamingResponse(result_bytes, media_type="image/jpeg")
+
+
+        # For videos
+        elif ext in ["mp4", "avi", "mov"]:
+            
+            with NamedTemporaryFile(delete=False, suffix=f".{ext}") as temp_video_file:
+                temp_video_file.write(contents)
+                temp_video_file.flush()
+                temp_video_path = temp_video_file.name
+                
+            frames, fps, frame_size = process_video_bytes(temp_video_path, ml_model, should_blur=should_blur)
+            output_path = "/tmp/processed_video.mp4"
+            save_video(frames, output_path, fps, frame_size)
+
+            return FileResponse(path=output_path, filename="processed_video.mp4", media_type="video/mp4")
+
+
+    except Exception as e:
+        logger.error(f"Prediction failed: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
+
+
 
 # We'll keep the POST route commented out for now
 # 
@@ -42,3 +98,15 @@ async def get_model_status():
 #         raise HTTPException(status_code=400, detail=str(ve))
 #     except Exception as e:
 #         raise HTTPException(status_code=500, detail="Prediction failed")
+
+
+
+# @router.get("/play")
+# async def play_large_file():
+#     some_file_path = "app/assets/2.mp4"
+
+#     def iterfile():  # 
+#         with open(some_file_path, mode="rb") as file_like:  # 
+#             yield from file_like  # 
+    
+#     return StreamingResponse(iterfile(), media_type="video/mp4")
