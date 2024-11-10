@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.routes import authentication, comments, profiles, tags, users
+from app.api.v1.routes import authentication, comments, profiles, tags, users, uploader
 from app.api.v1.routes.articles import api as articles
 from app.api.v1.routes import ml as ml_router
 
@@ -16,5 +16,6 @@ router.include_router(profiles.router, tags=["v1/profiles"], prefix="/profiles")
 # )
 # router.include_router(tags.router, tags=["v1/tags"], prefix="/tags")
 router.include_router(ml_router.router, tags=["v1/ml"], prefix="/ml")
+router.include_router(uploader.router, tags=["v1/uploader"], prefix="/upload")
 
 
