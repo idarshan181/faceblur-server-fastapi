@@ -1,6 +1,10 @@
 from enum import Enum
 
 from pydantic import BaseSettings
+from dotenv import load_dotenv
+
+
+load_dotenv()
 
 
 class AppEnvTypes(Enum):
