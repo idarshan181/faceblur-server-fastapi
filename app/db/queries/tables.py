@@ -46,6 +46,18 @@ class Articles(TypedTable):
     author_id: int
     created_at: datetime
     updated_at: datetime
+    
+
+class Videos(TypedTable):
+    __table__ = "videos"
+
+    id: int
+    user_id: str
+    video_url: str
+    s3_key: str
+    processed_video_url: str  # URL of the processed video after ML model processing
+    privacy_blurred_video_url: str  # URL of the privacy-compliant (blurred) video
+    created_at: datetime
 
 
 class Tags(TypedTable):
@@ -73,3 +85,4 @@ articles = Articles()
 tags = Tags()
 articles_to_tags = ArticlesToTags()
 favorites = Favorites()
+videos = Videos()
