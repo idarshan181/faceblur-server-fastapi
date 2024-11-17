@@ -17,14 +17,10 @@ import joblib
 from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
-# aws_access_key_id = os.getenv('AWS_ACCESS_KEY')
-# aws_secret_access_key = os.getenv('AWS_SECRET_KEY')
-# aws_region = os.getenv('AWS_REGION')
-# aws_s3_video_bucket = os.getenv('AWS_S3_VIDEO_BUCKET')
-aws_access_key_id = "AKIA4MTWJX7JBINQ4VVD"
-aws_secret_access_key = "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"
-aws_region = "us-east-1"
-aws_s3_video_bucket = "gesture-video-uploads-bucket"
+aws_access_key_id = os.getenv('AWS_ACCESS_KEY')
+aws_secret_access_key = os.getenv('AWS_SECRET_KEY')
+aws_region = os.getenv('AWS_REGION')
+aws_s3_video_bucket = os.getenv('AWS_S3_VIDEO_BUCKET')
 
 settings = BaseAppSettings()
 
