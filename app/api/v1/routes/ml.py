@@ -1,6 +1,8 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File, Query
+from typing import Dict
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File, Query
 from fastapi.responses import StreamingResponse, FileResponse
 from pydantic import BaseModel
+from app.gesturedetection.video_queue_processor import VideoQueueProcessor
 from app.ml.model import ml_model
 import logging
 import cv2
@@ -77,6 +79,9 @@ async def predict(file: UploadFile = File(...), should_blur: bool = Query(False,
         raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
 
 
+@router.get("/health")
+async def health_check():
+    return {"status": "OK"}
 
 # We'll keep the POST route commented out for now
 # 
@@ -110,3 +115,51 @@ async def predict(file: UploadFile = File(...), should_blur: bool = Query(False,
 #             yield from file_like  # 
     
 #     return StreamingResponse(iterfile(), media_type="video/mp4")
+@router.get("/video/{video_id}")
+async def get_video_status(
+    video_id: int,
+    queue_processor: VideoQueueProcessor = Depends(VideoQueueProcessor)
+):
+    """Get the status of a processed video"""
+    try:
+        # Check Redis for processing status
+        status_key = f"video_processing_status:{video_id}"
+        status = queue_processor.redis_client.hgetall(status_key)
+        
+        # Check database for completed video
+        video = Videos.get_by_id(video_id)
+        
+        if video and video.processed_video_url:
+            return {
+                "id": video.id,
+                "status": "completed",
+                "progress": 100,
+                "processed_url": video.processed_video_url
+            }
+        elif status:
+            return {
+                "id": video_id,
+                "status": status.get("status", "unknown"),
+                "progress": int(status.get("progress", 0)),
+                "processed_url": None
+            }
+        else:
+            raise HTTPException(status_code=404, detail="Video not found")
+            
+    except Exception as e:
+        logger.error(f"Error getting video status: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/process-video")
+async def process_video(
+    video_data: Dict,
+    background_tasks: BackgroundTasks,
+    queue_processor: VideoQueueProcessor = Depends(VideoQueueProcessor)
+):
+    """Endpoint to trigger video processing"""
+    try:
+        background_tasks.add_task(queue_processor.process_queue_message, video_data)
+        return {"message": "Video processing started", "video_id": video_data['video_id']}
+    except Exception as e:
+        logger.error(f"Error starting video processing: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
